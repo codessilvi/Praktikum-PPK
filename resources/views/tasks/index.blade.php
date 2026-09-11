@@ -32,10 +32,9 @@
             margin-bottom: 20px;
         }
 
-        .form-box {
-            display: none;
-            margin-bottom: 25px;
-        }
+    .form-box {
+        margin-bottom: 25px;
+    }
 
         .form-box input,
         .form-box textarea,
@@ -133,6 +132,16 @@
 
     <h1>Daftar Tugas</h1>
 
+    @php
+        $totalTasks = $tasks->count();
+        $completedTasks = $tasks->where('is_completed', true)->count();
+        $percentage = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
+    @endphp
+
+    <div style="margin-bottom: 20px; padding: 10px; background: #f4f4f4; border: 1px solid #ddd;">
+        <strong>Progress:</strong> {{ $completedTasks }} dari {{ $totalTasks }} tugas selesai ({{ $percentage }}%)
+    </div>
+
     {{-- Pesan berhasil --}}
     @if (session('success'))
         <div class="success">
@@ -211,9 +220,18 @@
 
         <div class="task">
 
-            <div class="task-title">
-                {{ $task->title }}
+            <div class="task-title" style="{{ $task->is_completed ? 'text-decoration: line-through; color: #888;' : '' }}">
+                {{ $task->title }} @if($task->is_completed) (Selesai) @endif
             </div>
+
+            {{-- Tombol Status Selesai / Belum --}}
+            <form action="{{ route('tasks.toggleStatus', $task->id) }}" method="POST" style="margin-top: 8px;">
+                @csrf
+                @method('PATCH')
+                <button type="submit" style="background: {{ $task->is_completed ? '#6c757d' : '#28a745' }}; color: white;">
+                    {{ $task->is_completed ? 'Batalkan Selesai' : 'Tandai Selesai' }}
+                </button>
+            </form>
 
             @if ($task->description)
                 <div class="task-description">
@@ -235,6 +253,34 @@
                     Deadline: -
                 </div>
             @endif
+
+{{-- BAGIAN SRS-005: KOLABORASI / ANGGOTA --}}
+            <div class="task-info" style="margin-top: 15px; border-top: 1px dashed #ddd; padding-top: 10px;">
+                <strong>Anggota Kolaborasi:</strong>
+                <ul>
+                    @foreach($task->collaborators as $collab)
+                        <li>
+                            {{ $collab->user->name }}
+                            <form action="{{ route('collaborators.destroy', $collab->id) }}" method="POST" style="display:inline;">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" style="padding: 2px 6px; font-size: 11px;" onclick="return confirm('Hapus anggota ini?')">x</button>
+                            </form>
+                        </li>
+                    @endforeach
+                </ul>
+
+                <form action="{{ route('collaborators.store', $task->id) }}" method="POST" style="margin-top: 8px;">
+                    @csrf
+                    <select name="user_id" required style="padding: 4px; font-size: 12px;">
+                        <option value="">Pilih Anggota</option>
+                        @foreach(\App\Models\User::all() as $user)
+                            <option value="{{ $user->id }}">{{ $user->name }}</option>
+                        @endforeach
+                    </select>
+                    <button type="submit" style="padding: 4px 8px; font-size: 12px;">Tambah Anggota</button>
+                </form>
+            </div>
 
             {{-- TOMBOL --}}
             <div class="task-actions">
