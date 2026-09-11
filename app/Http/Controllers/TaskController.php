@@ -58,4 +58,10 @@ class TaskController extends Controller
 
         return redirect()->back()->with('success', 'Task berhasil dihapus!');
     }
+
+    // Menampilkan halaman form tambah task
+    public function create()
+    {
+        return view('tasks.create');
+    }
 }

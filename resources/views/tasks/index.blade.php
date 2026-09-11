@@ -1,50 +1,48 @@
 {{-- resources/views/tasks/index.blade.php --}}
-<div class="task-section">
-    <h2>Daftar Tugas</h2>
 
-    <!-- Form Tambah Task (SRS-003 & SRS-004) -->
-    <form action="{{ route('tasks.store') }}" method="POST" class="mb-4">
-        @csrf
-        <input type="text" name="title" placeholder="Judul tugas..." required>
-        <textarea name="description" placeholder="Deskripsi..."></textarea>
-        
-        <select name="priority">
-            <option value="Low">Low</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="High">High</option>
-        </select>
-        
-        <input type="datetime-local" name="deadline">
-        
-        <button type="submit">Tambah Task</button>
-    </form>
-
-    <!-- Loop Daftar Task -->
-    <div class="task-list">
-        @forelse($tasks as $task)
-            <div class="task-card">
-                <h4>{{ $task->title }}</h4>
-                <p>{{ $task->description }}</p>
-                
-                <!-- Badge Priority -->
-                <span class="badge priority-{{ strtolower($task->priority) }}">
-                    {{ $task->priority }}
-                </span>
-
-                <!-- Deadline -->
-                @if($task->deadline)
-                    <small>Deadline: {{ \Carbon\Carbon::parse($task->deadline)->format('d M Y H:i') }}</small>
-                @endif
-
-                <!-- Action Button Hapus -->
-                <form action="{{ route('tasks.destroy', $task->id) }}" method="POST">
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" onclick="return confirm('Yakin hapus?')">Hapus</button>
-                </form>
-            </div>
-        @empty
-            <p>Belum ada tugas.</p>
-        @endforelse
-    </div>
+<div style="margin-bottom: 15px;">
+    <!-- Link mengarahkan ke halaman form tambah task -->
+    <a href="{{ route('tasks.create') }}" style="text-decoration: underline; color: purple; font-weight: bold;">
+        + Tambah Tugas
+    </a>
 </div>
+
+<!-- List Task -->
+@forelse ($tasks as $task)
+    @php
+        $item = (array) $task;
+        $title = $item['title'] ?? '-';
+        $priority = $item['priority'] ?? 'Low';
+        $deadline = $item['deadline'] ?? null;
+        $status = $item['status'] ?? 'belum selesai';
+        $id = $item['id'] ?? null;
+    @endphp
+
+    <div class="task-box" style="border: 1px solid #ccc; border-radius: 4px; padding: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <span style="{{ $status === 'selesai' ? 'text-decoration: line-through; color: #888;' : '' }}">
+                <strong>{{ $title }}</strong> — <em>{{ $status }}</em>
+            </span>
+
+            <!-- Badge Priority & Deadline (SRS-004) -->
+            <div style="font-size: 0.85em; margin-top: 4px; color: #555;">
+                <span style="background: #eee; padding: 2px 6px; border-radius: 3px;">
+                    Prioritas: {{ $priority }}
+                </span>
+                @if($deadline)
+                    <span style="margin-left: 8px;">📅 {{ \Carbon\Carbon::parse($deadline)->format('d M Y H:i') }}</span>
+                @endif
+            </div>
+        </div>
+
+        @if($id)
+            <form action="{{ route('tasks.destroy', $id) }}" method="POST" style="margin: 0;">
+                @csrf
+                @method('DELETE')
+                <button type="submit" onclick="return confirm('Hapus task ini?')" style="color: red; border: none; background: none; cursor: pointer;">Hapus</button>
+            </form>
+        @endif
+    </div>
+@empty
+    <p>Belum ada tugas.</p>
+@endforelse
