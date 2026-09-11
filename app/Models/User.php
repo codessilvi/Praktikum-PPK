@@ -22,6 +22,12 @@ class User extends Authenticatable
      *
      * @return array<string, string>
      */
+    
+    public function users()
+    {
+        return $this->belongsToMany(User::class, 'task_user');
+    }
+    
     protected function casts(): array
     {
         return [
