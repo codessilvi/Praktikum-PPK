@@ -5,6 +5,7 @@
 @section('content')
     <nav>
         <strong>Halo, {{ auth()->user()->name }}</strong>
+
         <form method="POST" action="{{ route('logout') }}">
             @csrf
             <button type="submit" style="width:auto;">Logout</button>
@@ -13,14 +14,22 @@
 
     <h2>Daftar Tugas</h2>
 
-    <a href="#">+ Tambah Tugas</a> {{-- [SESUAIKAN] --}}
+    <a href="{{ route('tasks.index') }}">+ Tambah Tugas</a>
 
     @forelse ($tasks as $task)
         <div class="task">
-            <span class="{{ $task['status'] === 'selesai' ? 'status-done' : '' }}">
-                {{ $task['title'] }}
-            </span>
-            — <em>{{ $task['status'] }}</em>
+            <strong>{{ $task->title }}</strong>
+
+            <div>
+                Prioritas: {{ $task->priority }}
+            </div>
+
+            @if ($task->deadline)
+                <div>
+                    Deadline:
+                    {{ \Carbon\Carbon::parse($task->deadline)->format('d/m/Y H:i') }}
+                </div>
+            @endif
         </div>
     @empty
         <p>Belum ada tugas.</p>

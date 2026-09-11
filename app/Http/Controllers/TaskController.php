@@ -8,6 +8,16 @@ use Illuminate\Support\Facades\Auth;
 
 class TaskController extends Controller
 {
+    // SRS-003: Menampilkan daftar task
+    public function index()
+    {
+        $tasks = Task::where('user_id', Auth::id())
+            ->latest()
+            ->get();
+
+        return view('tasks.index', compact('tasks'));
+    }
+
     // SRS-003: Simpan Task Baru
     public function store(Request $request)
     {
@@ -31,7 +41,6 @@ class TaskController extends Controller
     // SRS-003: Update Task
     public function update(Request $request, Task $task)
     {
-        // Pastikan hanya pemilik yang bisa ubah
         if ($task->user_id !== Auth::id()) {
             abort(403);
         }
@@ -42,7 +51,9 @@ class TaskController extends Controller
             'deadline' => 'nullable|date',
         ]);
 
-        $task->update($request->only(['title', 'description', 'priority', 'deadline']));
+        $task->update(
+            $request->only(['title', 'description', 'priority', 'deadline'])
+        );
 
         return redirect()->back()->with('success', 'Task berhasil diperbarui!');
     }
@@ -58,4 +69,16 @@ class TaskController extends Controller
 
         return redirect()->back()->with('success', 'Task berhasil dihapus!');
     }
+    public function complete(Task $task)
+{
+    if ($task->user_id !== Auth::id()) {
+        abort(403);
+    }
+
+    $task->update([
+        'status' => 'selesai',
+    ]);
+
+    return redirect()->back()->with('success', 'Task berhasil diselesaikan!');
+}
 }

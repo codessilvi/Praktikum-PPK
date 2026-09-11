@@ -1,50 +1,358 @@
-{{-- resources/views/tasks/index.blade.php --}}
-<div class="task-section">
-    <h2>Daftar Tugas</h2>
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar Tugas</title>
 
-    <!-- Form Tambah Task (SRS-003 & SRS-004) -->
-    <form action="{{ route('tasks.store') }}" method="POST" class="mb-4">
-        @csrf
-        <input type="text" name="title" placeholder="Judul tugas..." required>
-        <textarea name="description" placeholder="Deskripsi..."></textarea>
-        
-        <select name="priority">
-            <option value="Low">Low</option>
-            <option value="Medium" selected>Medium</option>
-            <option value="High">High</option>
-        </select>
-        
-        <input type="datetime-local" name="deadline">
-        
-        <button type="submit">Tambah Task</button>
-    </form>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 30px;
+            background: white;
+            color: #222;
+        }
 
-    <!-- Loop Daftar Task -->
-    <div class="task-list">
-        @forelse($tasks as $task)
-            <div class="task-card">
-                <h4>{{ $task->title }}</h4>
-                <p>{{ $task->description }}</p>
-                
-                <!-- Badge Priority -->
-                <span class="badge priority-{{ strtolower($task->priority) }}">
-                    {{ $task->priority }}
-                </span>
+        .container {
+            width: 500px;
+            margin: 0 auto;
+        }
 
-                <!-- Deadline -->
-                @if($task->deadline)
-                    <small>Deadline: {{ \Carbon\Carbon::parse($task->deadline)->format('d M Y H:i') }}</small>
-                @endif
+        h1 {
+            margin-bottom: 25px;
+        }
 
-                <!-- Action Button Hapus -->
-                <form action="{{ route('tasks.destroy', $task->id) }}" method="POST">
+        a {
+            color: #333;
+        }
+
+        .add-link {
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .form-box {
+            display: none;
+            margin-bottom: 25px;
+        }
+
+        .form-box input,
+        .form-box textarea,
+        .form-box select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #999;
+            font-family: Arial, sans-serif;
+        }
+
+        button {
+            padding: 7px 14px;
+            border: 1px solid #777;
+            background: #333;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #222;
+        }
+
+        .cancel-button {
+            background: white;
+            color: #333;
+            border: none;
+            margin-left: 5px;
+        }
+
+        .task {
+            border: 1px solid #ccc;
+            padding: 18px;
+            margin-bottom: 15px;
+        }
+
+        .task-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .task-description {
+            margin-bottom: 8px;
+        }
+
+        .task-info {
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        .task-actions {
+            margin-top: 12px;
+        }
+
+        .edit-form {
+            display: none;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #ddd;
+        }
+
+        .edit-form input,
+        .edit-form textarea,
+        .edit-form select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            margin-bottom: 10px;
+            border: 1px solid #999;
+            font-family: Arial, sans-serif;
+        }
+
+        .success {
+            color: green;
+            margin-bottom: 15px;
+        }
+
+        .error {
+            color: red;
+            margin-bottom: 15px;
+        }
+
+        .back {
+            display: inline-block;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Daftar Tugas</h1>
+
+    {{-- Pesan berhasil --}}
+    @if (session('success'))
+        <div class="success">
+            {{ session('success') }}
+        </div>
+    @endif
+
+    {{-- Pesan error validasi --}}
+    @if ($errors->any())
+        <div class="error">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    {{-- Tombol Tambah --}}
+    <a href="#" class="add-link"
+       onclick="document.getElementById('form-tambah').style.display='block'; return false;">
+        + Tambah Tugas
+    </a>
+
+    {{-- FORM TAMBAH --}}
+    <div id="form-tambah" class="form-box">
+
+        <form action="{{ route('tasks.store') }}" method="POST">
+            @csrf
+
+            <label>Judul Tugas:</label>
+            <input
+                type="text"
+                name="title"
+                placeholder="Masukkan judul tugas..."
+                required
+            >
+
+            <label>Deskripsi:</label>
+            <textarea
+                name="description"
+                rows="3"
+                placeholder="Deskripsi tugas..."
+            ></textarea>
+
+            <label>Prioritas:</label>
+            <select name="priority" required>
+                <option value="Low">Low</option>
+                <option value="Medium" selected>Medium</option>
+                <option value="High">High</option>
+            </select>
+
+            <label>Deadline:</label>
+            <input
+                type="datetime-local"
+                name="deadline"
+            >
+
+            <button type="submit">
+                Simpan Tugas
+            </button>
+
+            <button
+                type="button"
+                class="cancel-button"
+                onclick="document.getElementById('form-tambah').style.display='none';"
+            >
+                Batal
+            </button>
+        </form>
+
+    </div>
+
+    {{-- DAFTAR TUGAS --}}
+    @forelse ($tasks as $task)
+
+        <div class="task">
+
+            <div class="task-title">
+                {{ $task->title }}
+            </div>
+
+            @if ($task->description)
+                <div class="task-description">
+                    {{ $task->description }}
+                </div>
+            @endif
+
+            <div class="task-info">
+                Prioritas: {{ $task->priority }}
+            </div>
+
+            @if ($task->deadline)
+                <div class="task-info">
+                    Deadline:
+                    {{ \Carbon\Carbon::parse($task->deadline)->format('d/m/Y H:i') }}
+                </div>
+            @else
+                <div class="task-info">
+                    Deadline: -
+                </div>
+            @endif
+
+            {{-- TOMBOL --}}
+            <div class="task-actions">
+
+                {{-- EDIT --}}
+                <button
+                    type="button"
+                    onclick="document.getElementById('edit-{{ $task->id }}').style.display='block';"
+                >
+                    Edit
+                </button>
+
+                {{-- HAPUS --}}
+                <form
+                    action="{{ route('tasks.destroy', $task) }}"
+                    method="POST"
+                    style="display: inline;"
+                >
                     @csrf
                     @method('DELETE')
-                    <button type="submit" onclick="return confirm('Yakin hapus?')">Hapus</button>
+
+                    <button
+                        type="submit"
+                        onclick="return confirm('Yakin ingin menghapus tugas ini?')"
+                    >
+                        Hapus
+                    </button>
                 </form>
+
             </div>
-        @empty
-            <p>Belum ada tugas.</p>
-        @endforelse
-    </div>
+
+            {{-- FORM EDIT --}}
+            <div
+                id="edit-{{ $task->id }}"
+                class="edit-form"
+            >
+
+                <form
+                    action="{{ route('tasks.update', $task) }}"
+                    method="POST"
+                >
+                    @csrf
+                    @method('PUT')
+
+                    <label>Judul Tugas:</label>
+                    <input
+                        type="text"
+                        name="title"
+                        value="{{ $task->title }}"
+                        required
+                    >
+
+                    <label>Deskripsi:</label>
+                    <textarea
+                        name="description"
+                        rows="3"
+                    >{{ $task->description }}</textarea>
+
+                    <label>Prioritas:</label>
+                    <select name="priority" required>
+                        <option
+                            value="Low"
+                            {{ $task->priority === 'Low' ? 'selected' : '' }}
+                        >
+                            Low
+                        </option>
+
+                        <option
+                            value="Medium"
+                            {{ $task->priority === 'Medium' ? 'selected' : '' }}
+                        >
+                            Medium
+                        </option>
+
+                        <option
+                            value="High"
+                            {{ $task->priority === 'High' ? 'selected' : '' }}
+                        >
+                            High
+                        </option>
+                    </select>
+
+                    <label>Deadline:</label>
+                    <input
+                        type="datetime-local"
+                        name="deadline"
+                        value="{{ $task->deadline ? \Carbon\Carbon::parse($task->deadline)->format('Y-m-d\TH:i') : '' }}"
+                    >
+
+                    <button type="submit">
+                        Simpan Perubahan
+                    </button>
+
+                    <button
+                        type="button"
+                        class="cancel-button"
+                        onclick="document.getElementById('edit-{{ $task->id }}').style.display='none';"
+                    >
+                        Batal
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    @empty
+
+        <p>Belum ada tugas.</p>
+
+    @endforelse
+
+    <a href="{{ route('dashboard') }}" class="back">
+        ← Kembali ke Dashboard
+    </a>
+
 </div>
+
+</body>
+</html>

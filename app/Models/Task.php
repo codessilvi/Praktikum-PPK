@@ -10,16 +10,17 @@ class Task extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'title',
-        'description',
-        'priority',
-        'deadline',
-    ];
+    'user_id',
+    'title',
+    'description',
+    'priority',
+    'deadline',
+    'status',
+];
 
     // Relasi ke User
     public function user()
     {
-        return $table->belongsTo(User::class);
+        return $this->belongsTo(User::class);
     }
 }
