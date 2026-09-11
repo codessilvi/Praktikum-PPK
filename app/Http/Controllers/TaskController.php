@@ -25,7 +25,7 @@ class TaskController extends Controller
             'deadline'    => $request->deadline,
         ]);
 
-        return redirect()->back()->with('success', 'Task berhasil ditambahkan!');
+        return redirect()->route('dashboard')->with('success', 'Task berhasil ditambahkan!');
     }
 
     // SRS-003: Update Task
