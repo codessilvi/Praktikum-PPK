@@ -25,6 +25,6 @@ class Task extends Model
     }
     public function collaborators()
     {
-        return $this->belongsToMany(User::class, 'collaborators', 'task_id', 'user_id');
+        return $this->belongsToMany(User::class, 'collaborators', 'task_id', 'user_id'); // sesuaikan nama tabel pivot
     }
 }
