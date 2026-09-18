@@ -93,7 +93,7 @@
             </div>
         </div>
     @empty
-        <p>Belum ada tugas.</p>
+        <p>Belum ada task list.</p>
     @endforelse
 
     <a href="{{ route('dashboard') }}" style="display: inline-block; margin-top: 15px; color: #007bff; text-decoration: none;">← Kembali ke Dashboard</a>

@@ -7,7 +7,6 @@ use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    // SRS-002: menampilkan daftar tugas milik user yang login
     public function index(Request $request)
     {
         $userId = $request->user()->id;
@@ -28,6 +27,7 @@ class DashboardController extends Controller
 
         return view('tasks.index', [
             'tasks' => $tasks,
+            'taskLists' => $taskLists,
         ]);
     }
 }
