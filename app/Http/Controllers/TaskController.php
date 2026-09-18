@@ -31,7 +31,7 @@ class TaskController extends Controller
             ->orderBy('deadline', 'asc')
             ->get();
 
-        return view('dashboard', compact('tasks'));
+        return view('tasks.index', compact('tasks'));
     }
 
     /**
@@ -140,10 +140,10 @@ class TaskController extends Controller
     public function toggleStatus($id)
     {
         $task = Task::findOrFail($id);
-        
+
         $this->authorizeTaskAccess($task);
 
-        $task->is_completed = !$task->is_completed;
+        $task->status = $task->status === 'selesai' ? 'belum selesai' : 'selesai';
         $task->save();
 
         return redirect()->back()->with('success', 'Status tugas berhasil diperbarui.');

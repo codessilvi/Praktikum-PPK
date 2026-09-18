@@ -1,79 +1,101 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard')
+@section('title', 'Daftar Tugas')
 
 @section('content')
-    <nav>
-        <strong>Halo, {{ auth()->user()->name }}</strong>
+<div class="container" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h1>Daftar Tugas</h1>
 
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button type="submit" style="width:auto;">Logout</button>
-        </form>
-    </nav>
-
-    <h2>Daftar Tugas</h2>
-
-    {{-- BAGIAN PROGRESS (SRS-006) --}}
+    {{-- SRS-006: Indicator Progress --}}
     @php
         $totalTasks = $tasks->count();
         $completedTasks = $tasks->where('is_completed', true)->count();
         $percentage = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
     @endphp
 
-    <div style="margin-bottom: 20px; padding: 10px; background: #f4f4f4; border: 1px solid #ddd;">
+    <div style="margin-bottom: 20px; padding: 12px; background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px;">
         <strong>Progress:</strong> {{ $completedTasks }} dari {{ $totalTasks }} tugas selesai ({{ $percentage }}%)
     </div>
 
-    <a href="{{ route('tasks.create') }}">+ Tambah Tugas</a>
+    @if (session('success'))
+        <div style="color: green; margin-bottom: 15px;">{{ session('success') }}</div>
+    @endif
 
+    <a href="{{ route('tasks.create') }}" class="add-link" style="display: inline-block; margin-bottom: 15px;">+ Tambah Tugas Baru</a>
+
+    {{-- DAFTAR TUGAS --}}
     @forelse ($tasks as $task)
-        <div class="task" style="border: 1px solid #ccc; padding: 15px; margin-top: 15px; border-radius: 5px;">
-            
-            {{-- JUDUL TUGAS & INDIKATOR SELESAI --}}
-            <div style="{{ $task->is_completed ? 'text-decoration: line-through; color: #888;' : '' }}">
-                <strong>{{ $task->title }}</strong> @if($task->is_completed) (Selesai) @endif
+        @php
+            $priorityColor = 'green';
+            if ($task->priority === 'High') $priorityColor = 'red';
+            if ($task->priority === 'Medium') $priorityColor = 'orange';
+
+            $isOwner = (int)$task->user_id === (int)auth()->id();
+        @endphp
+
+        <div class="task" style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 4px; background: #fff;">
+            {{-- Judul & Status --}}
+            <div class="task-title" style="font-size: 18px; font-weight: bold; {{ $task->is_completed ? 'text-decoration: line-through; color: #888;' : '' }}">
+                {{ $task->title }} @if($task->is_completed) (Selesai) @endif
             </div>
 
-            {{-- TOMBOL TANDAI SELESAI (SRS-006) --}}
-            <form action="{{ route('tasks.toggleStatus', $task->id) }}" method="POST" style="margin-top: 8px;">
+            {{-- Toggle Status --}}
+            <form action="{{ route('tasks.toggleStatus', $task->id) }}" method="POST" style="margin: 8px 0;">
                 @csrf
                 @method('PATCH')
-                <button type="submit" style="background: {{ $task->is_completed ? '#6c757d' : '#28a745' }}; color: white; padding: 3px 8px; font-size: 12px; border: none; cursor: pointer;">
+                <button type="submit" style="background: {{ $task->is_completed ? '#6c757d' : '#28a745' }}; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
                     {{ $task->is_completed ? 'Batalkan Selesai' : 'Tandai Selesai' }}
                 </button>
             </form>
 
-            <div style="margin-top: 5px;">
-                Prioritas: {{ $task->priority }}
-            </div>
-
-            @if ($task->deadline)
-                <div>
-                    Deadline:
-                    {{ \Carbon\Carbon::parse($task->deadline)->format('d/m/Y H:i') }}
-                </div>
+            @if ($task->description)
+                <p style="margin: 8px 0; color: #333;">{{ $task->description }}</p>
             @endif
 
-            {{-- BAGIAN KOLABORASI (SRS-005) --}}
-            <div class="task-info" style="margin-top: 10px; border-top: 1px dashed #ddd; padding-top: 8px;">
+            {{-- Prioritas & Deadline --}}
+            <div style="font-size: 13px; color: #555; margin-top: 5px;">
+                <strong>Prioritas:</strong> 
+                <span style="font-weight: bold; color: {{ $priorityColor }};">
+                    {{ $task->priority }}
+                </span>
+            </div>
+            <div style="font-size: 13px; color: #555; margin-top: 3px;">
+                <strong>Deadline:</strong> {{ $task->deadline ? \Carbon\Carbon::parse($task->deadline)->format('d/m/Y H:i') : '-' }}
+            </div>
+
+            {{-- Kolaborator --}}
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd; font-size: 13px;">
                 <strong>Anggota Kolaborasi:</strong>
-                <ul>
-                    @foreach($task->collaborators as $collab)
-                        <li>
-                            {{ $collab->name }}
-                        </li>
-                    @endforeach
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    @forelse($task->collaborators as $collab)
+                        <li>{{ $collab->name }}</li>
+                    @empty
+                        <li style="color: #888;">Tidak ada kolaborator</li>
+                    @endforelse
                 </ul>
             </div>
 
-            {{-- TOMBOL EDIT --}}
-            <div style="margin-top: 12px;">
-                <a href="{{ route('tasks.edit', $task->id) }}" style="padding: 4px 10px; background: #ffc107; color: black; text-decoration: none; font-size: 12px; border-radius: 3px;">Edit</a>
-            </div>
+            {{-- Tombol Aksi --}}
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <a href="{{ route('tasks.edit', $task->id) }}" style="padding: 6px 12px; background: #ffc107; color: black; text-decoration: none; font-size: 13px; border-radius: 4px; font-weight: bold;">
+                    Edit
+                </a>
 
+                @if($isOwner)
+                    <form action="{{ route('tasks.destroy', $task->id) }}" method="POST" style="display: inline;">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" style="padding: 6px 12px; background: #dc3545; color: white; border: none; font-size: 13px; border-radius: 4px; cursor: pointer; font-weight: bold;" onclick="return confirm('Yakin ingin menghapus tugas ini?')">
+                            Hapus
+                        </button>
+                    </form>
+                @endif
+            </div>
         </div>
     @empty
-        <p style="margin-top: 15px;">Belum ada tugas.</p>
+        <p>Belum ada tugas.</p>
     @endforelse
+
+    <a href="{{ route('dashboard') }}" style="display: inline-block; margin-top: 15px; color: #007bff; text-decoration: none;">← Kembali ke Dashboard</a>
+</div>
 @endsection

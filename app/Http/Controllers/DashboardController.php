@@ -26,7 +26,7 @@ class DashboardController extends Controller
                 ->latest()
                 ->get();
 
-        return view('dashboard', [
+        return view('tasks.index', [
             'tasks' => $tasks,
         ]);
     }
