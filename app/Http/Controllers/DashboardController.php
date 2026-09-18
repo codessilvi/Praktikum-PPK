@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Task;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -9,12 +10,21 @@ class DashboardController extends Controller
     // SRS-002: menampilkan daftar tugas milik user yang login
     public function index(Request $request)
     {
-        $user = $request->user();
+        $userId = $request->user()->id;
 
-        $tasks = [
-            ['title' => 'Tugas PPK', 'status' => 'belum selesai'],
-            ['title' => 'Tugas Metode Numerik', 'status' => 'selesai'],
-        ];
+        $tasks = Task::where(function($query) use ($userId) {
+                    if (\Schema::hasColumn('tasks', 'user_id')) {
+                        $query->orWhere('user_id', $userId);
+                    }
+                    if (\Schema::hasColumn('tasks', 'created_by')) {
+                        $query->orWhere('created_by', $userId);
+                    }
+                })
+                ->orWhereHas('collaborators', function($query) use ($userId) {
+                    $query->where('user_id', $userId);
+                })
+                ->latest()
+                ->get();
 
         return view('dashboard', [
             'tasks' => $tasks,
