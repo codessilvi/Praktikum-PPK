@@ -3,31 +3,34 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\TaskList;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {
-    // SRS-002: menampilkan daftar tugas milik user yang login
     public function index(Request $request)
     {
         $userId = $request->user()->id;
 
-        $tasks = Task::where(function($query) use ($userId) {
-                    if (\Schema::hasColumn('tasks', 'user_id')) {
-                        $query->orWhere('user_id', $userId);
-                    }
-                    if (\Schema::hasColumn('tasks', 'created_by')) {
-                        $query->orWhere('created_by', $userId);
-                    }
+        // Ambil task milik user atau task yang melibatkan user sebagai collaborator
+        $tasks = Task::where(function ($query) use ($userId) {
+                    $query->where('user_id', $userId);
                 })
-                ->orWhereHas('collaborators', function($query) use ($userId) {
+                ->orWhereHas('collaborators', function ($query) use ($userId) {
                     $query->where('user_id', $userId);
                 })
                 ->latest()
                 ->get();
 
+        // Ambil task list milik user
+        $taskLists = TaskList::where('user_id', $userId)
+            ->with('tasks')
+            ->latest()
+            ->get();
+
         return view('dashboard', [
             'tasks' => $tasks,
+            'taskLists' => $taskLists,
         ]);
     }
 }
