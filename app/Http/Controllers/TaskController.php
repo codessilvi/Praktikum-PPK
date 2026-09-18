@@ -108,7 +108,14 @@ class TaskController extends Controller
     }
     public function toggleStatus($id)
     {
-        $task = \App\Models\Task::findOrFail($id);
+        $task = Task::findOrFail($id);
+        $isOwner = $task->user_id === Auth::id();
+        $isCollaborator = $task->collaborators()->where('user_id', Auth::id())->exists();
+
+        if (!$isOwner && !$isCollaborator) {
+            abort(403);
+        }
+
         $task->is_completed = !$task->is_completed;
         $task->save();
 
