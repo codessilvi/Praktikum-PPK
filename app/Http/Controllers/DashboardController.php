@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\TaskList;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -24,6 +25,8 @@ class DashboardController extends Controller
                 })
                 ->latest()
                 ->get();
+
+        $taskLists = TaskList::where('user_id', $userId)->get();
 
         return view('tasks.index', [
             'tasks' => $tasks,
