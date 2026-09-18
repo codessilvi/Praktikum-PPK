@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\TaskList;
 
 class Task extends Model
 {
@@ -12,7 +11,6 @@ class Task extends Model
 
     protected $fillable = [
     'user_id',
-    'task_list_id',
     'title',
     'description',
     'priority',
@@ -25,12 +23,8 @@ class Task extends Model
     {
         return $this->belongsTo(User::class);
     }
-    public function taskList()
-    {
-        return $this->belongsTo(TaskList::class);
-    }
     public function collaborators()
     {
-        return $this->belongsToMany(User::class, 'collaborators', 'task_id', 'user_id'); // sesuaikan nama tabel pivot
+        return $this->belongsToMany(User::class, 'collaborators', 'task_id', 'user_id');
     }
 }

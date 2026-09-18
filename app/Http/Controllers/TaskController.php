@@ -3,142 +3,170 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class TaskController extends Controller
 {
-    // SRS-003: Menampilkan daftar task
-   public function index()
+    /**
+     * SRS-003: Menampilkan daftar task milik user atau task kolaborasi.
+     */
+    public function index()
     {
-        $userId = auth()->id();
-        
-        // Mengambil task milik user sendiri atau tugas kolaborasi
-        $tasks = \App\Models\Task::where(function($query) use ($userId) {
-                    if (\Schema::hasColumn('tasks', 'user_id')) {
-                        $query->orWhere('user_id', $userId);
-                    }
-                    if (\Schema::hasColumn('tasks', 'created_by')) {
-                        $query->orWhere('created_by', $userId);
-                    }
-                })
-                ->orWhereHas('collaborators', function($query) use ($userId) {
-                    $query->where('user_id', $userId);
-                })
-                ->get();
+        $userId = Auth::id();
 
-        return view('dashboard', compact('tasks'));
+        
+
+        // Mengambil task di mana user adalah Owner ATAU sebagai Collaborator
+         $tasks = Task::orderByRaw("
+                CASE priority
+                    WHEN 'High' THEN 1
+                    WHEN 'Medium' THEN 2
+                    WHEN 'Low' THEN 3
+                    ELSE 4
+                END
+            ")
+            ->orderBy('deadline', 'asc')
+            ->get();
+
+        return view('tasks.index', compact('tasks'));
     }
 
-// SRS-003: Simpan Task Baru
+    /**
+     * SRS-003: Menampilkan form tambah task.
+     */
+    public function create()
+    {
+        $users = User::where('id', '!=', Auth::id())->get();
+        return view('tasks.create', compact('users'));
+    }
+
+    /**
+     * SRS-003, SRS-004: Simpan Task Baru (Transaksi Atomik & Parameterized Validated).
+     */
     public function store(Request $request)
     {
-        $request->validate([
-            'title'        => 'required|string|max:255',
-            'priority'     => 'required|in:Low,Medium,High',
-            'deadline'     => 'nullable|date',
+        $validated = $request->validate([
+            'title'         => 'required|string|max:255',
+            'description'   => 'nullable|string',
+            'priority'      => 'required|in:Low,Medium,High',
+            'deadline'      => 'nullable|date',
             'collaborators' => 'nullable|array',
+            'collaborators.*' => 'exists:users,id',
         ]);
 
-        $task = Task::create([
-            'user_id'     => Auth::id(),
-            'title'       => $request->title,
-            'description' => $request->description,
-            'priority'    => $request->priority,
-            'deadline'    => $request->deadline,
-        ]);
+        // Dibungkus DB::transaction agar proses atomik (SRS & Keamanan)
+        DB::transaction(function () use ($validated, $request) {
+            $task = Task::create([
+                'user_id'     => Auth::id(), // Otomatis menjadi Pemilik (Owner)
+                'title'       => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'priority'    => $validated['priority'],
+                'deadline'    => $validated['deadline'] ?? null,
+            ]);
 
-        // Simpan anggota kolaborasi jika dipilih
-        if ($request->has('collaborators')) {
-            $task->collaborators()->sync($request->collaborators);
-        }
+            if (!empty($validated['collaborators'])) {
+                $task->collaborators()->sync($validated['collaborators']);
+            }
+        });
 
-        return redirect()->route('dashboard')->with('success', 'Task berhasil ditambahkan!');
+        return redirect()->route('dashboard')->with('success', 'Tugas berhasil ditambahkan!');
     }
 
-// SRS-003: Update Task
+    /**
+     * SRS-003: Menampilkan form edit task.
+     */
+    public function edit(Task $task)
+    {
+        $this->authorizeTaskAccess($task);
+
+        $users = User::where('id', '!=', Auth::id())->get();
+        $taskCollaborators = $task->collaborators()->pluck('user_id')->toArray();
+
+        return view('tasks.edit', compact('task', 'users', 'taskCollaborators'));
+    }
+
+    /**
+     * SRS-003, SRS-004: Update Detail Task.
+     */
     public function update(Request $request, Task $task)
     {
-        $isOwner = $task->user_id === Auth::id();
-        $isCollaborator = $task->collaborators()->where('user_id', Auth::id())->exists();
+        $this->authorizeTaskAccess($task);
 
-        if (!$isOwner && !$isCollaborator) {
-            abort(403);
-        }
-
-        $request->validate([
-            'title'        => 'required|string|max:255',
-            'priority'     => 'required|in:Low,Medium,High',
-            'deadline'     => 'nullable|date',
+        $validated = $request->validate([
+            'title'         => 'required|string|max:255',
+            'description'   => 'nullable|string',
+            'priority'      => 'required|in:Low,Medium,High',
+            'deadline'      => 'nullable|date',
             'collaborators' => 'nullable|array',
+            'collaborators.*' => 'exists:users,id',
         ]);
 
-        $task->update(
-            $request->only(['title', 'description', 'priority', 'deadline'])
-        );
+        DB::transaction(function () use ($task, $validated) {
+            $task->update([
+                'title'       => $validated['title'],
+                'description' => $validated['description'] ?? null,
+                'priority'    => $validated['priority'],
+                'deadline'    => $validated['deadline'] ?? null,
+            ]);
 
-        // Perbarui anggota kolaborasi
-        $task->collaborators()->sync($request->input('collaborators', []));
+            // Sync anggota kolaborasi (hanya Owner yang bisa atap/hapus anggota jika diinginkan)
+            $task->collaborators()->sync($validated['collaborators'] ?? []);
+        });
 
-        return redirect()->route('dashboard')->with('success', 'Task berhasil diperbarui!');
+        return redirect()->route('dashboard')->with('success', 'Tugas berhasil diperbarui!');
     }
 
-    // SRS-003: Hapus Task
+    /**
+     * SRS-003: Hapus Task Individu.
+     */
     public function destroy(Task $task)
     {
-        if ($task->user_id !== Auth::id()) {
-            abort(403);
+        // Pastikan hanya pembuat task yang bisa hapus
+        if ((int) $task->user_id !== (int) auth()->id()) {
+            abort(403, 'Anda tidak memiliki akses untuk menghapus tugas ini.');
         }
 
         $task->delete();
 
-        return redirect()->back()->with('success', 'Task berhasil dihapus!');
+        return redirect()->route('tasks.index')->with('success', 'Tugas berhasil dihapus.');
     }
-    public function complete(Task $task)
-    {
-        if ($task->user_id !== Auth::id()) {
-            abort(403);
-        }
 
-        $task->update([
-            'status' => 'selesai',
-        ]);
-
-        return redirect()->back()->with('success', 'Task berhasil diselesaikan!');
-    }
+    /**
+     * SRS-006: Toggle Status Selesai / Belum Selesai (Bisa oleh Owner maupun Member).
+     */
     public function toggleStatus($id)
     {
         $task = Task::findOrFail($id);
-        $isOwner = $task->user_id === Auth::id();
-        $isCollaborator = $task->collaborators()->where('user_id', Auth::id())->exists();
 
-        if (!$isOwner && !$isCollaborator) {
-            abort(403);
-        }
+        $this->authorizeTaskAccess($task);
 
-        $task->is_completed = !$task->is_completed;
+        $task->status = $task->status === 'selesai' ? 'belum selesai' : 'selesai';
         $task->save();
 
-        return back()->with('success', 'Status task berhasil diperbarui.');
+        return redirect()->back()->with('success', 'Status tugas berhasil diperbarui.');
     }
 
-    // Menampilkan form tambah task
-    public function create()
+    /**
+     * Helper Method: Memastikan User adalah Owner ATAU Member Kolaborasi dari Task ini.
+     */
+    private function authorizeTaskAccess(Task $task): void
     {
-        return view('tasks.create');
-    }
+        $userId = Auth::id();
 
-    public function edit(Task $task)
-    {
-        // Cek hak akses apakah user pembuat atau kolaborator
-        $isOwner = $task->user_id === Auth::id();
-        $isCollaborator = $task->collaborators()->where('user_id', Auth::id())->exists();
+        // 1. Cek apakah user adalah Owner (pembuat tugas)
+        $isOwner = (int) $task->user_id === (int) $userId;
+
+        // 2. Cek apakah user adalah Collaborator
+        // Menggunakan exists() langsung pada relasi
+        $isCollaborator = $task->collaborators()
+            ->where('users.id', $userId) // Explicit tabel users.id untuk hindari ambiguitas SQL
+            ->exists();
 
         if (!$isOwner && !$isCollaborator) {
-            abort(403);
+            abort(403, 'Anda tidak memiliki akses ke tugas ini.');
         }
-
-        return view('tasks.edit', compact('task'));
     }
-
 }

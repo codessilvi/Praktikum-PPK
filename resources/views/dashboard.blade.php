@@ -1,266 +1,101 @@
 @extends('layouts.app')
 
-@section('title', 'Dashboard')
+@section('title', 'Daftar Tugas')
 
 @section('content')
-    <nav>
-        <strong>Halo, {{ auth()->user()->name }}</strong>
+<div class="container" style="max-width: 600px; margin: 0 auto; padding: 20px;">
+    <h1>Daftar Tugas</h1>
 
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button type="submit" style="width:auto;">Logout</button>
-        </form>
-    </nav>
-
-    <h2>Dashboard</h2>
-
-    {{-- BAGIAN PROGRESS (SRS-006) --}}
+    {{-- SRS-006: Indicator Progress --}}
     @php
         $totalTasks = $tasks->count();
-        $completedTasks = $tasks->where('status', 'selesai')->count();
-        $percentage = $totalTasks > 0
-            ? round(($completedTasks / $totalTasks) * 100)
-            : 0;
+        $completedTasks = $tasks->where('is_completed', true)->count();
+        $percentage = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100) : 0;
     @endphp
 
-    <div style="margin-bottom: 20px; padding: 10px; background: #f4f4f4; border: 1px solid #ddd;">
-        <strong>Progress:</strong>
-        {{ $completedTasks }} dari {{ $totalTasks }} tugas selesai
-        ({{ $percentage }}%)
+    <div style="margin-bottom: 20px; padding: 12px; background: #f4f4f4; border: 1px solid #ddd; border-radius: 4px;">
+        <strong>Progress:</strong> {{ $completedTasks }} dari {{ $totalTasks }} tugas selesai ({{ $percentage }}%)
     </div>
 
-    {{-- TASK LIST --}}
-    <h2>Daftar Task List</h2>
+    @if (session('success'))
+        <div style="color: green; margin-bottom: 15px;">{{ session('success') }}</div>
+    @endif
 
-    @forelse ($taskLists as $taskList)
-        <div style="
-            border: 1px solid #aaa;
-            padding: 15px;
-            margin-top: 15px;
-            border-radius: 5px;
-        ">
+    <a href="{{ route('tasks.create') }}" class="add-link" style="display: inline-block; margin-bottom: 15px;">+ Tambah Tugas Baru</a>
 
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <strong style="font-size: 18px;">
-                        {{ $taskList->name }}
-                    </strong>
+    {{-- DAFTAR TUGAS --}}
+    @forelse ($tasks as $task)
+        @php
+            $priorityColor = 'green';
+            if ($task->priority === 'High') $priorityColor = 'red';
+            if ($task->priority === 'Medium') $priorityColor = 'orange';
 
-                    @if ($taskList->description)
-                        <p style="margin: 5px 0;">
-                            {{ $taskList->description }}
-                        </p>
-                    @endif
-                </div>
+            $isOwner = (int)$task->user_id === (int)auth()->id();
+        @endphp
 
-                {{-- HAPUS TASK LIST --}}
-                <form
-                    method="POST"
-                    action="{{ route('task-lists.destroy', $taskList->id) }}"
-                    onsubmit="return confirm('Yakin ingin menghapus task list ini beserta semua task di dalamnya?');"
-                >
-                    @csrf
-                    @method('DELETE')
-
-                    <button
-                        type="submit"
-                        style="
-                            background: #dc3545;
-                            color: white;
-                            border: none;
-                            padding: 6px 10px;
-                            border-radius: 4px;
-                            cursor: pointer;
-                        "
-                    >
-                        Hapus Task List
-                    </button>
-                </form>
+        <div class="task" style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 4px; background: #fff;">
+            {{-- Judul & Status --}}
+            <div class="task-title" style="font-size: 18px; font-weight: bold; {{ $task->is_completed ? 'text-decoration: line-through; color: #888;' : '' }}">
+                {{ $task->title }} @if($task->is_completed) (Selesai) @endif
             </div>
 
-            {{-- TASK DI DALAM LIST --}}
-            <div style="margin-top: 15px;">
-                <strong>Task dalam list:</strong>
+            {{-- Toggle Status --}}
+            <form action="{{ route('tasks.toggleStatus', $task->id) }}" method="POST" style="margin: 8px 0;">
+                @csrf
+                @method('PATCH')
+                <button type="submit" style="background: {{ $task->is_completed ? '#6c757d' : '#28a745' }}; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
+                    {{ $task->is_completed ? 'Batalkan Selesai' : 'Tandai Selesai' }}
+                </button>
+            </form>
 
-                @forelse ($taskList->tasks as $task)
-                    <div style="
-                        border-top: 1px dashed #ccc;
-                        padding: 10px 0;
-                    ">
+            @if ($task->description)
+                <p style="margin: 8px 0; color: #333;">{{ $task->description }}</p>
+            @endif
 
-                        @php
-                            $isCompleted = $task->status === 'selesai';
-                        @endphp
-
-                        <div style="
-                            {{ $isCompleted
-                                ? 'text-decoration: line-through; color: #888;'
-                                : '' }}
-                        ">
-                            <strong>{{ $task->title }}</strong>
-
-                            @if ($isCompleted)
-                                (Selesai)
-                            @endif
-                        </div>
-
-                        {{-- TOMBOL STATUS --}}
-                        <form
-                            action="{{ route('tasks.toggleStatus', $task->id) }}"
-                            method="POST"
-                            style="margin-top: 8px;"
-                        >
-                            @csrf
-                            @method('PATCH')
-
-                            <button
-                                type="submit"
-                                style="
-                                    background: {{ $isCompleted ? '#6c757d' : '#28a745' }};
-                                    color: white;
-                                    padding: 3px 8px;
-                                    font-size: 12px;
-                                    border: none;
-                                    cursor: pointer;
-                                "
-                            >
-                                {{ $isCompleted
-                                    ? 'Batalkan Selesai'
-                                    : 'Tandai Selesai' }}
-                            </button>
-                        </form>
-
-                        {{-- PRIORITAS --}}
-                        <div style="margin-top: 5px;">
-                            Prioritas: {{ $task->priority }}
-                        </div>
-
-                        {{-- DEADLINE --}}
-                        @if ($task->deadline)
-                            <div>
-                                Deadline:
-                                {{ \Carbon\Carbon::parse($task->deadline)->format('d/m/Y H:i') }}
-                            </div>
-                        @endif
-
-                        {{-- COLLABORATOR --}}
-                        <div
-                            class="task-info"
-                            style="
-                                margin-top: 10px;
-                                border-top: 1px dashed #ddd;
-                                padding-top: 8px;
-                            "
-                        >
-                            <strong>Anggota Kolaborasi:</strong>
-
-                            @if ($task->collaborators->count() > 0)
-                                <ul>
-                                    @foreach ($task->collaborators as $collab)
-                                        <li>{{ $collab->name }}</li>
-                                    @endforeach
-                                </ul>
-                            @else
-                                <span> Tidak ada</span>
-                            @endif
-                        </div>
-
-                        {{-- EDIT TASK --}}
-                        <div style="margin-top: 12px;">
-                            <a
-                                href="{{ route('tasks.edit', $task->id) }}"
-                                style="
-                                    padding: 4px 10px;
-                                    background: #ffc107;
-                                    color: black;
-                                    text-decoration: none;
-                                    font-size: 12px;
-                                    border-radius: 3px;
-                                "
-                            >
-                                Edit
-                            </a>
-                        </div>
-
-                    </div>
-                @empty
-                    <p style="margin-top: 10px;">
-                        Belum ada task dalam list ini.
-                    </p>
-                @endforelse
+            {{-- Prioritas & Deadline --}}
+            <div style="font-size: 13px; color: #555; margin-top: 5px;">
+                <strong>Prioritas:</strong> 
+                <span style="font-weight: bold; color: {{ $priorityColor }};">
+                    {{ $task->priority }}
+                </span>
+            </div>
+            <div style="font-size: 13px; color: #555; margin-top: 3px;">
+                <strong>Deadline:</strong> {{ $task->deadline ? \Carbon\Carbon::parse($task->deadline)->format('d/m/Y H:i') : '-' }}
             </div>
 
+            {{-- Kolaborator --}}
+            <div style="margin-top: 10px; padding-top: 10px; border-top: 1px dashed #ddd; font-size: 13px;">
+                <strong>Anggota Kolaborasi:</strong>
+                <ul style="margin: 5px 0; padding-left: 20px;">
+                    @forelse($task->collaborators as $collab)
+                        <li>{{ $collab->name }}</li>
+                    @empty
+                        <li style="color: #888;">Tidak ada kolaborator</li>
+                    @endforelse
+                </ul>
+            </div>
+
+            {{-- Tombol Aksi --}}
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <a href="{{ route('tasks.edit', $task->id) }}" style="padding: 6px 12px; background: #ffc107; color: black; text-decoration: none; font-size: 13px; border-radius: 4px; font-weight: bold;">
+                    Edit
+                </a>
+
+                @if($isOwner)
+                    <form action="{{ route('tasks.destroy', $task->id) }}" method="POST" style="display: inline;">
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" style="padding: 6px 12px; background: #dc3545; color: white; border: none; font-size: 13px; border-radius: 4px; cursor: pointer; font-weight: bold;" onclick="return confirm('Yakin ingin menghapus tugas ini?')">
+                            Hapus
+                        </button>
+                    </form>
+                @endif
+            </div>
         </div>
     @empty
         <p>Belum ada task list.</p>
     @endforelse
 
-    <br>
-
-    <a href="{{ route('tasks.create') }}">+ Tambah Tugas</a>
-
-    {{-- TASK YANG TIDAK MASUK LIST --}}
-    <h2 style="margin-top: 30px;">Tugas Lainnya</h2>
-
-    @php
-        $unlistedTasks = $tasks->whereNull('task_list_id');
-    @endphp
-
-    @forelse ($unlistedTasks as $task)
-        @php
-            $isCompleted = $task->status === 'selesai';
-        @endphp
-
-        <div
-            class="task"
-            style="
-                border: 1px solid #ccc;
-                padding: 15px;
-                margin-top: 15px;
-                border-radius: 5px;
-            "
-        >
-            <div style="
-                {{ $isCompleted
-                    ? 'text-decoration: line-through; color: #888;'
-                    : '' }}
-            ">
-                <strong>{{ $task->title }}</strong>
-
-                @if ($isCompleted)
-                    (Selesai)
-                @endif
-            </div>
-
-            <div style="margin-top: 5px;">
-                Prioritas: {{ $task->priority }}
-            </div>
-
-            @if ($task->deadline)
-                <div>
-                    Deadline:
-                    {{ \Carbon\Carbon::parse($task->deadline)->format('d/m/Y H:i') }}
-                </div>
-            @endif
-
-            <div style="margin-top: 12px;">
-                <a
-                    href="{{ route('tasks.edit', $task->id) }}"
-                    style="
-                        padding: 4px 10px;
-                        background: #ffc107;
-                        color: black;
-                        text-decoration: none;
-                        font-size: 12px;
-                        border-radius: 3px;
-                    "
-                >
-                    Edit
-                </a>
-            </div>
-        </div>
-    @empty
-        <p>Tidak ada tugas di luar task list.</p>
-    @endforelse
-
+    <a href="{{ route('dashboard') }}" style="display: inline-block; margin-top: 15px; color: #007bff; text-decoration: none;">← Kembali ke Dashboard</a>
+</div>
 @endsection
