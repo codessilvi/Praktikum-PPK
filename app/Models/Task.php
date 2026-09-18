@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\TaskList;
 
 class Task extends Model
 {
@@ -11,6 +12,7 @@ class Task extends Model
 
     protected $fillable = [
     'user_id',
+    'task_list_id',
     'title',
     'description',
     'priority',
@@ -22,6 +24,10 @@ class Task extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+    public function taskList()
+    {
+        return $this->belongsTo(TaskList::class);
     }
     public function collaborators()
     {
